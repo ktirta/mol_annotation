@@ -14,12 +14,12 @@ img_width = 800
 img_height = 500
 
 # Helper to draw subgraph with atom indices
-def draw_with_atom_indices(mol, atom_indices=None):
+def draw_with_atom_indices(mol, atom_indices=None, atom_colors=None):
     rdDepictor.Compute2DCoords(mol)
     drawer = rdMolDraw2D.MolDraw2DSVG(img_width, img_height)
     drawer.drawOptions().addAtomIndices = True
     if atom_indices:
-        drawer.DrawMolecule(mol, highlightAtoms=atom_indices)
+        drawer.DrawMolecule(mol, highlightAtoms=atom_indices, highlightAtomColors=atom_colors)
     else:
         drawer.DrawMolecule(mol)
     drawer.FinishDrawing()
@@ -46,6 +46,11 @@ test_smiles_list = st.sidebar.text_area("Test Molecules (SMILES, one per line):"
 
 train_molecules = [s.strip() for s in train_smiles_list.split('\n') if s.strip()]
 test_molecules = [s.strip() for s in test_smiles_list.split('\n') if s.strip()]
+color_palette = [(1, 0, 0), (0, 1, 0), (0, 0, 1), 
+                (1, 0.5, 0), (1, 0, 0.5), (0.4, 0.8, 0.2), (0.7, 0.7, 0.7),
+                (0, 1, 0.5), (0.5, 0, 1), (0, 0.5, 1), (0.5, 0.5, 0.5),
+                (0.8, 0, 0.8), (0.6, 0.6, 0), (0.1, 0.1, 0.1)
+                ]
 
 if mode == "Training Set":
     st.header("🔧 Training Molecule Annotation")
@@ -58,23 +63,32 @@ if mode == "Training Set":
         st.components.v1.html(svg, height=img_height, scrolling=True)
 
         st.subheader("Subgraph Annotation")
-        subgraph_count = st.number_input("How many subgraphs to annotate?", min_value=1, max_value=10, value=2)
-
+        st.sidebar.markdown("### Properties of Interest")
+        properties_input_train = st.sidebar.text_input("Enter properties for training (comma-separated):", "Activity, Solubility", key="train_props")
+        properties_train = [p.strip() for p in properties_input_train.split(',') if p.strip()]
+        multiline_input = st.text_area("Enter subgraphs (one per line, comma-separated atom indices):")
         annotations = []
-        for i in range(subgraph_count):
-            st.markdown("---")
-            st.markdown(f"**Subgraph {i+1}**")
+        highlight_dict = {}
+        label_dict = {}
+        lines = multiline_input.strip().split("\n")
+
+        cols = st.columns(5)
+        for i, line in enumerate(lines):
+            atom_indices = [int(x) for x in line.split(',') if x.strip().isdigit()]
+            color = color_palette[i % len(color_palette)]
+            for idx in atom_indices:
+                highlight_dict[idx] = color
+            with cols[i % 5]:
+                st.markdown(f"<span style='color: rgb({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)})'><b>Subgraph {i+1}</b></span>", unsafe_allow_html=True)
+                weights = {}
+                for prop in properties_train:
+                    weights[prop] = st.slider(
+                        f"Importance for {prop}", 0.0, 1.0, 0.5, 0.05,
+                        key=f"train_weight_{i}_{prop}")
+            annotations.append({"subgraph": [f"atom_{idx}" for idx in atom_indices], "weights": weights})
+        svg = draw_with_atom_indices(mol, list(highlight_dict.keys()), highlight_dict)
+        st.components.v1.html(svg, height=img_height, scrolling=True)
             
-            atom_indices_str = st.text_input(f"Atom indices for subgraph {i+1} (comma-separated)", key=f"idx_{i}")
-            weight = st.slider(f"Importance weight for Subgraph {i+1}", 0.0, 1.0, 0.5, 0.05, key=f"w_{i}")
-            try:
-                atom_indices = [int(x) for x in atom_indices_str.split(',') if x.strip().isdigit()]
-                sub_svg = draw_with_atom_indices(mol, atom_indices)
-                st.components.v1.html(sub_svg, height=img_height, scrolling=True)
-                atom_indices = [f"atom_{idx}" for idx in atom_indices] # Add atom in front of idx to avoid confusion
-                annotations.append({"subgraph": atom_indices, "weight": weight})
-            except Exception as e:
-                st.warning(f"Invalid atom indices: {e}")
 
         if st.button("💾 Save Annotations for This Molecule"):
             st.success(f"Annotations saved for molecule: {selected}")
@@ -124,25 +138,26 @@ elif mode == "Test Set":
 
 
         st.subheader("Subgraph Importance for Test Molecule")
-        subgraph_count_test = st.number_input("How many subgraphs to annotate (test)?", min_value=1, max_value=10, value=2, key="test_subgraphs")
-
+        multiline_input = st.text_area("Enter subgraphs (one per line, comma-separated atom indices):", key="test_subgraph_input")
         test_annotations = []
-        for i in range(subgraph_count_test):
-            st.markdown("---")
-            st.markdown(f"**Subgraph {i+1}**")
-            
-            atom_indices_str = st.text_input(f"Atom indices for subgraph {i+1} (comma-separated)", key=f"t_idx_{i}")
-            weights = {}
-            for prop in properties:
-                weights[prop] = st.slider(f"Importance for {prop} (Subgraph {i+1})", 0.0, 1.0, 0.5, 0.05, key=f"t_w_{i}_{prop}")
-            try:
-                atom_indices = [int(x) for x in atom_indices_str.split(',') if x.strip().isdigit()]
-                sub_svg = draw_with_atom_indices(test_mol, atom_indices)
-                st.components.v1.html(sub_svg, height=img_height, scrolling=True)
-                atom_indices = [f"atom_{idx}" for idx in atom_indices] # Add atom in front of idx to avoid confusion
-                test_annotations.append({"subgraph": atom_indices, "weights": weights})
-            except Exception as e:
-                st.warning(f"Invalid atom indices: {e}")
+        highlight_dict = {}
+        lines = multiline_input.strip().split("\n")
+        cols = st.columns(5)
+        for i, line in enumerate(lines):
+            atom_indices = [int(x) for x in line.split(',') if x.strip().isdigit()]
+            color = color_palette[i % len(color_palette)]
+            for idx in atom_indices:
+                highlight_dict[idx] = color
+            with cols[i % 5]:
+                st.markdown(f"<span style='color: rgb({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)})'><b>Subgraph {i+1}</b></span>", unsafe_allow_html=True)
+                weights = {}
+                for prop in properties:
+                    weights[prop] = st.slider(
+                        f"Importance for {prop}", 0.0, 1.0, 0.5, 0.05,
+                        key=f"t_weight_{i}_{prop}")
+            test_annotations.append({"subgraph": [f"atom_{idx}" for idx in atom_indices], "weights": weights})
+        svg = draw_with_atom_indices(test_mol, list(highlight_dict.keys()), highlight_dict)
+        st.components.v1.html(svg, height=img_height, scrolling=True)
 
         if st.button("💾 Save Annotations for This Test Molecule"):
             st.success(f"Annotations saved for test molecule: {test_selected}")
