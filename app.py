@@ -10,10 +10,13 @@ from io import BytesIO
 
 st.set_page_config(layout="wide")
 
+img_width = 400
+img_height = 400
+
 # Helper to draw subgraph with atom indices
 def draw_with_atom_indices(mol, atom_indices=None):
     rdDepictor.Compute2DCoords(mol)
-    drawer = rdMolDraw2D.MolDraw2DSVG(300, 300)
+    drawer = rdMolDraw2D.MolDraw2DSVG(img_width, img_height)
     drawer.drawOptions().addAtomIndices = True
     if atom_indices:
         drawer.DrawMolecule(mol, highlightAtoms=atom_indices)
@@ -47,7 +50,7 @@ if mode == "Training Set":
     if mol:
         st.subheader("Molecule Viewer (Atom Indices)")
         svg = draw_with_atom_indices(mol)
-        st.components.v1.html(svg, height=300)
+        st.components.v1.html(svg, height=img_height)
 
         st.subheader("Subgraph Annotation")
         subgraph_count = st.number_input("How many subgraphs to annotate?", min_value=1, max_value=10, value=2)
@@ -58,7 +61,7 @@ if mode == "Training Set":
             col1, col2 = st.columns([1, 2])
             with col1:
                 st.markdown("Original Molecule")
-                st.components.v1.html(svg, height=300)
+                st.components.v1.html(svg, height=img_height)
             with col2:
                 atom_indices_str = st.text_input(f"Atom indices for subgraph {i+1} (comma-separated)", key=f"idx_{i}")
                 weight = st.slider(f"Importance weight for Subgraph {i+1}", 0.0, 1.0, 0.5, 0.05, key=f"w_{i}")
@@ -66,7 +69,7 @@ if mode == "Training Set":
                     try:
                         atom_indices = [int(x) for x in atom_indices_str.split(',') if x.strip().isdigit()]
                         sub_svg = draw_with_atom_indices(mol, atom_indices)
-                        st.components.v1.html(sub_svg, height=300)
+                        st.components.v1.html(sub_svg, height=img_height)
                         atom_indices = [f"atom_{idx}" for idx in atom_indices] # Add atom in front of idx to avoid confusion
                         annotations.append({"subgraph": atom_indices, "weight": weight})
                     except Exception as e:
@@ -90,7 +93,7 @@ elif mode == "Test Set":
     if test_mol:
         st.subheader("Test Molecule Viewer (Atom Indices)")
         svg = draw_with_atom_indices(test_mol)
-        st.components.v1.html(svg, height=300)
+        st.components.v1.html(svg, height=img_height)
 
         st.subheader("Pairwise Ranking Against Training Set")
         pairwise_annotations = []
@@ -100,10 +103,10 @@ elif mode == "Test Set":
 
             with col1:
                 st.markdown("**Test**")
-                st.image(Draw.MolToImage(test_mol, size=(300, 300)))
+                st.image(Draw.MolToImage(test_mol, size=(img_width, img_height)))
             with col2:
                 st.markdown("**Reference**")
-                st.image(Draw.MolToImage(ref_mol, size=(300, 300)))
+                st.image(Draw.MolToImage(ref_mol, size=(img_width, img_height)))
             with col3:
                 choice = st.radio(f"Which has higher property value? (Test vs {ref_smiles})",
                                   ["Test > Reference", "Test < Reference", "Equal / Uncertain"],
@@ -119,7 +122,7 @@ elif mode == "Test Set":
             col1, col2 = st.columns([1, 2])
             with col1:
                 st.markdown("Original Molecule")
-                st.components.v1.html(svg, height=300)
+                st.components.v1.html(svg, height=img_height)
             with col2:
                 atom_indices_str = st.text_input(f"Atom indices for subgraph {i+1} (comma-separated)", key=f"t_idx_{i}")
                 weight = st.slider(f"Importance weight for Subgraph {i+1}", 0.0, 1.0, 0.5, 0.05, key=f"t_w_{i}")
@@ -127,7 +130,7 @@ elif mode == "Test Set":
                     try:
                         atom_indices = [int(x) for x in atom_indices_str.split(',') if x.strip().isdigit()]
                         sub_svg = draw_with_atom_indices(test_mol, atom_indices)
-                        st.components.v1.html(sub_svg, height=300)
+                        st.components.v1.html(sub_svg, height=img_height)
                         atom_indices = [f"atom_{idx}" for idx in atom_indices] # Add atom in front of idx to avoid confusion
                         test_annotations.append({"subgraph": atom_indices, "weight": weight})
                     except Exception as e:
