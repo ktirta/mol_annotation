@@ -30,7 +30,7 @@ def draw_with_atom_indices(mol, atom_indices=None, atom_colors=None):
 st.title("🧬 Molecular Annotation UI")
 
 # Sidebar navigation
-mode = st.sidebar.radio("Choose annotation mode:", ["Training Set", "Test Set"])
+mode = st.sidebar.radio("Choose annotation mode:", ["Test Set", "Training Set"])
 
 # Shared: Input SMILES
 st.sidebar.markdown("### Input Molecules")
@@ -64,7 +64,7 @@ if mode == "Training Set":
 
         st.subheader("Subgraph Annotation")
         st.sidebar.markdown("### Properties of Interest")
-        properties_input_train = st.sidebar.text_input("Enter properties for training (comma-separated):", "Activity (IC50), Solubility (log P)", key="train_props")
+        properties_input_train = st.sidebar.text_input("Enter properties for training (comma-separated):", "Activity (IC50)", key="train_props")
         properties_train = [p.strip() for p in properties_input_train.split(',') if p.strip()]
         multiline_input = st.text_area("Enter subgraphs (one per line, comma-separated atom indices):")
         annotations = []
@@ -103,7 +103,7 @@ elif mode == "Test Set":
     st.header("🔍 Test Molecule Pairwise Ranking")
 
     st.sidebar.markdown("### Properties of Interest")
-    properties_input = st.sidebar.text_input("Enter properties (comma-separated):", "Activity (IC50), Solubility (log P)")
+    properties_input = st.sidebar.text_input("Enter properties (comma-separated):", "Activity (IC50)")
     properties = [p.strip() for p in properties_input.split(',') if p.strip()]
 
     test_selected = st.selectbox("Select test molecule:", test_molecules)
